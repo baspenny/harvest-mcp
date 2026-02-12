@@ -52,7 +52,13 @@ All tools follow the same pattern:
 Available tools:
 - `get_my_profile`: Verify credentials and retrieve authenticated user info
 - `list_active_projects`: Get user's project assignments with associated tasks
-- `log_time`: Create a time entry for a specific project/task
+- `log_time`: Create a time entry for a specific project/task with hours specified
+- `get_time_entries`: Retrieve time entries for a date or date range
+- `delete_time_entry`: Delete a specific time entry
+- `start_timer`: Start a running timer for a project/task (tracks time until stopped)
+- `stop_timer`: Stop a running timer using the /stop endpoint and finalize the hours
+- `restart_timer`: Restart a previously stopped timer using the /restart endpoint
+- `get_running_timer`: Check if a timer is currently running and see elapsed time
 
 ### Harvest API Integration
 

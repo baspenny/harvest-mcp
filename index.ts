@@ -150,10 +150,15 @@ server.registerTool("get_my_profile", {
     account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
   },
 }, async (args) => {
-  const { accessToken, accountId } = getCredentials(args);
-  const client = createClient(accessToken, accountId);
-  const res = await client.get("/users/me");
-  return { content: [{ type: "text", text: `Authenticated as: ${res.data.first_name} ${res.data.last_name}` }] };
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+    const res = await client.get("/users/me");
+    return { content: [{ type: "text", text: `Authenticated as: ${res.data.first_name} ${res.data.last_name}` }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+    throw new Error(`Failed to get profile: ${errorMessage}`);
+  }
 });
 
 server.registerTool("list_active_projects", {
@@ -163,10 +168,15 @@ server.registerTool("list_active_projects", {
     account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
   },
 }, async (args) => {
-  const { accessToken, accountId } = getCredentials(args);
-  const client = createClient(accessToken, accountId);
-  const res = await client.get("/users/me/project_assignments");
-  return { content: [{ type: "text", text: JSON.stringify(res.data.project_assignments, null, 2) }] };
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+    const res = await client.get("/users/me/project_assignments");
+    return { content: [{ type: "text", text: JSON.stringify(res.data.project_assignments, null, 2) }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+    throw new Error(`Failed to list projects: ${errorMessage}`);
+  }
 });
 
 server.registerTool("log_time", {
@@ -181,23 +191,28 @@ server.registerTool("log_time", {
     notes: z.string().optional().describe("Notes for the time entry"),
   },
 }, async (args) => {
-  const { accessToken, accountId } = getCredentials(args);
-  const client = createClient(accessToken, accountId);
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
 
-  const spentDate = args.spent_date
-    ? parseRelativeDate(args.spent_date)
-    : formatDate(new Date());
+    const spentDate = args.spent_date
+      ? parseRelativeDate(args.spent_date)
+      : formatDate(new Date());
 
-  const payload = {
-    project_id: args.project_id,
-    task_id: args.task_id,
-    spent_date: spentDate,
-    hours: args.hours,
-    notes: args.notes,
-  };
+    const payload = {
+      project_id: args.project_id,
+      task_id: args.task_id,
+      spent_date: spentDate,
+      hours: args.hours,
+      notes: args.notes,
+    };
 
-  const res = await client.post("/time_entries", payload);
-  return { content: [{ type: "text", text: `Success! Time entry created with ID: ${res.data.id}` }] };
+    const res = await client.post("/time_entries", payload);
+    return { content: [{ type: "text", text: `Success! Time entry created with ID: ${res.data.id}` }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+    throw new Error(`Failed to log time: ${errorMessage}`);
+  }
 });
 
 server.registerTool("get_time_entries", {
@@ -211,39 +226,44 @@ server.registerTool("get_time_entries", {
     user_id: z.number().optional().describe("Filter by specific user ID (optional, defaults to current user)"),
   },
 }, async (args) => {
-  const { accessToken, accountId } = getCredentials(args);
-  const client = createClient(accessToken, accountId);
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
 
-  const today = formatDate(new Date());
-  const fromDate = args.from ? parseRelativeDate(args.from) : today;
-  const toDate = args.to ? parseRelativeDate(args.to) : fromDate;
+    const today = formatDate(new Date());
+    const fromDate = args.from ? parseRelativeDate(args.from) : today;
+    const toDate = args.to ? parseRelativeDate(args.to) : fromDate;
 
-  const params: any = {
-    from: fromDate,
-    to: toDate,
-  };
+    const params: any = {
+      from: fromDate,
+      to: toDate,
+    };
 
-  if (args.project_id) {
-    params.project_id = args.project_id;
-  }
+    if (args.project_id) {
+      params.project_id = args.project_id;
+    }
 
-  if (args.user_id) {
-    params.user_id = args.user_id;
-  }
+    if (args.user_id) {
+      params.user_id = args.user_id;
+    }
 
-  const res = await client.get("/time_entries", { params });
+    const res = await client.get("/time_entries", { params });
 
-  const entries = res.data.time_entries;
-  if (!entries || entries.length === 0) {
+    const entries = res.data.time_entries;
+    if (!entries || entries.length === 0) {
+      const dateRange = fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`;
+      return { content: [{ type: "text", text: `No time entries found for ${dateRange}.` }] };
+    }
+
+    const totalHours = entries.reduce((sum: number, entry: any) => sum + (entry.hours || 0), 0);
     const dateRange = fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`;
-    return { content: [{ type: "text", text: `No time entries found for ${dateRange}.` }] };
+    const summary = `Found ${entries.length} time ${entries.length === 1 ? 'entry' : 'entries'} for ${dateRange}:\n\nTotal hours: ${totalHours.toFixed(2)}\n\n${JSON.stringify(entries, null, 2)}`;
+
+    return { content: [{ type: "text", text: summary }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+    throw new Error(`Failed to get time entries: ${errorMessage}`);
   }
-
-  const totalHours = entries.reduce((sum: number, entry: any) => sum + (entry.hours || 0), 0);
-  const dateRange = fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`;
-  const summary = `Found ${entries.length} time ${entries.length === 1 ? 'entry' : 'entries'} for ${dateRange}:\n\nTotal hours: ${totalHours.toFixed(2)}\n\n${JSON.stringify(entries, null, 2)}`;
-
-  return { content: [{ type: "text", text: summary }] };
 });
 
 server.registerTool("delete_time_entry", {
@@ -254,10 +274,144 @@ server.registerTool("delete_time_entry", {
     time_entry_id: z.number().describe("The ID of the time entry to delete"),
   },
 }, async (args) => {
-  const { accessToken, accountId } = getCredentials(args);
-  const client = createClient(accessToken, accountId);
-  await client.delete(`/time_entries/${args.time_entry_id}`);
-  return { content: [{ type: "text", text: `Success! Time entry ${args.time_entry_id} has been deleted.` }] };
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+    await client.delete(`/time_entries/${args.time_entry_id}`);
+    return { content: [{ type: "text", text: `Success! Time entry ${args.time_entry_id} has been deleted.` }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+    throw new Error(`Failed to delete time entry: ${errorMessage}`);
+  }
+});
+
+server.registerTool("start_timer", {
+  description: "Start a timer for a specific project and task. This creates a running time entry that tracks time until stopped.",
+  inputSchema: {
+    access_token: z.string().optional().describe("Harvest Personal Access Token (optional if set via env)"),
+    account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
+    project_id: z.number().describe("The ID of the project"),
+    task_id: z.number().describe("The ID of the task"),
+    spent_date: z.string().optional().describe("Date in YYYY-MM-DD format or relative date (e.g., 'today', 'yesterday'). Defaults to today."),
+    notes: z.string().optional().describe("Notes for the time entry"),
+  },
+}, async (args) => {
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+
+    const spentDate = args.spent_date
+      ? parseRelativeDate(args.spent_date)
+      : formatDate(new Date());
+
+    const payload = {
+      project_id: args.project_id,
+      task_id: args.task_id,
+      spent_date: spentDate,
+      notes: args.notes,
+    };
+
+    const res = await client.post("/time_entries", payload);
+    return { content: [{ type: "text", text: `Success! Timer started with ID: ${res.data.id}` }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error starting timer";
+    throw new Error(`Failed to start timer: ${errorMessage}`);
+  }
+});
+
+server.registerTool("stop_timer", {
+  description: "Stop a running timer. This will calculate the hours based on elapsed time and stop tracking.",
+  inputSchema: {
+    access_token: z.string().optional().describe("Harvest Personal Access Token (optional if set via env)"),
+    account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
+    time_entry_id: z.number().describe("The ID of the running time entry to stop"),
+  },
+}, async (args) => {
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+
+    // Use the dedicated /stop endpoint
+    const res = await client.patch(`/time_entries/${args.time_entry_id}/stop`);
+    const hours = res.data.hours || 0;
+    const project = res.data.project?.name || 'Unknown Project';
+    const task = res.data.task?.name || 'Unknown Task';
+
+    return {
+      content: [{
+        type: "text",
+        text: `Success! Timer stopped.\n\nProject: ${project}\nTask: ${task}\nTotal time logged: ${hours} hours\nDate: ${res.data.spent_date}`
+      }]
+    };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error stopping timer";
+    const errorDetails = error.response?.data ? `\nDetails: ${JSON.stringify(error.response.data)}` : '';
+    throw new Error(`Failed to stop timer: ${errorMessage}${errorDetails}`);
+  }
+});
+
+server.registerTool("restart_timer", {
+  description: "Restart a previously stopped timer. This will resume time tracking for an existing time entry.",
+  inputSchema: {
+    access_token: z.string().optional().describe("Harvest Personal Access Token (optional if set via env)"),
+    account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
+    time_entry_id: z.number().describe("The ID of the stopped time entry to restart"),
+  },
+}, async (args) => {
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+
+    // Use the dedicated /restart endpoint
+    const res = await client.patch(`/time_entries/${args.time_entry_id}/restart`);
+    const project = res.data.project?.name || 'Unknown Project';
+    const task = res.data.task?.name || 'Unknown Task';
+
+    return {
+      content: [{
+        type: "text",
+        text: `Success! Timer restarted.\n\nID: ${res.data.id}\nProject: ${project}\nTask: ${task}\nDate: ${res.data.spent_date}`
+      }]
+    };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error restarting timer";
+    const errorDetails = error.response?.data ? `\nDetails: ${JSON.stringify(error.response.data)}` : '';
+    throw new Error(`Failed to restart timer: ${errorMessage}${errorDetails}`);
+  }
+});
+
+server.registerTool("get_running_timer", {
+  description: "Get the currently running timer, if any",
+  inputSchema: {
+    access_token: z.string().optional().describe("Harvest Personal Access Token (optional if set via env)"),
+    account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
+  },
+}, async (args) => {
+  try {
+    const { accessToken, accountId } = getCredentials(args);
+    const client = createClient(accessToken, accountId);
+
+    const res = await client.get("/time_entries", {
+      params: { is_running: true }
+    });
+
+    const runningEntries = res.data.time_entries;
+    if (!runningEntries || runningEntries.length === 0) {
+      return { content: [{ type: "text", text: "No timer is currently running." }] };
+    }
+
+    const entry = runningEntries[0];
+    const startedAt = new Date(entry.created_at);
+    const now = new Date();
+    const elapsedMinutes = Math.floor((now.getTime() - startedAt.getTime()) / (1000 * 60));
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+
+    return { content: [{ type: "text", text: `Timer is running:\n\nID: ${entry.id}\nProject: ${entry.project.name}\nTask: ${entry.task.name}\nNotes: ${entry.notes || 'None'}\nElapsed: ${hours}h ${minutes}m\n\n${JSON.stringify(entry, null, 2)}` }] };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || "Unknown error getting running timer";
+    throw new Error(`Failed to get running timer: ${errorMessage}`);
+  }
 });
 
 // 3. Start Server

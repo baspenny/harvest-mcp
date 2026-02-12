@@ -8,6 +8,8 @@ A Model Context Protocol (MCP) server that integrates with the [Harvest](https:/
 - **List active projects** with their associated tasks
 - **Retrieve time entries** for any date or date range with optional project/user filtering
 - **Log time entries** for specific projects and tasks
+- **Start/stop/restart timers** to track time in real-time
+- **Delete time entries** when needed
 - **Flexible authentication**: Supports both environment variables and per-call credentials
 
 ## Prerequisites
@@ -223,6 +225,126 @@ Create a time entry for a specific project and task.
 Success! Time entry created with ID: 123456789
 ```
 
+### `start_timer`
+
+Start a running timer for a specific project and task. The timer will track time until stopped.
+
+**Parameters:**
+- `access_token` (optional): Harvest Personal Access Token
+- `account_id` (optional): Harvest Account ID
+- `project_id` (required): Project ID
+- `task_id` (required): Task ID
+- `spent_date` (optional): Date in YYYY-MM-DD format or relative date (defaults to today)
+- `notes` (optional): Description of the work being performed
+
+**Example Usage:**
+```json
+{
+  "project_id": 67890,
+  "task_id": 222,
+  "notes": "Working on user authentication"
+}
+```
+
+**Example Response:**
+```
+Success! Timer started with ID: 123456789
+```
+
+### `stop_timer`
+
+Stop a running timer. This uses Harvest's dedicated `/stop` endpoint to calculate hours based on elapsed time.
+
+**Parameters:**
+- `access_token` (optional): Harvest Personal Access Token
+- `account_id` (optional): Harvest Account ID
+- `time_entry_id` (required): The ID of the running timer to stop
+
+**Example Usage:**
+```json
+{
+  "time_entry_id": 123456789
+}
+```
+
+**Example Response:**
+```
+Success! Timer stopped.
+
+Project: My Project
+Task: Development
+Total time logged: 2.5 hours
+Date: 2026-02-12
+```
+
+### `restart_timer`
+
+Restart a previously stopped timer. This uses Harvest's dedicated `/restart` endpoint to resume tracking.
+
+**Parameters:**
+- `access_token` (optional): Harvest Personal Access Token
+- `account_id` (optional): Harvest Account ID
+- `time_entry_id` (required): The ID of the stopped timer to restart
+
+**Example Usage:**
+```json
+{
+  "time_entry_id": 123456789
+}
+```
+
+**Example Response:**
+```
+Success! Timer restarted.
+
+ID: 123456789
+Project: My Project
+Task: Development
+Date: 2026-02-12
+```
+
+### `get_running_timer`
+
+Check if there's a timer currently running and see elapsed time.
+
+**Parameters:**
+- `access_token` (optional): Harvest Personal Access Token
+- `account_id` (optional): Harvest Account ID
+
+**Example Response:**
+```
+Timer is running:
+
+ID: 123456789
+Project: My Project
+Task: Development
+Notes: Working on user authentication
+Elapsed: 1h 23m
+
+[detailed JSON data]
+```
+
+### `delete_time_entry`
+
+Delete a specific time entry.
+
+**Parameters:**
+- `access_token` (optional): Harvest Personal Access Token
+- `account_id` (optional): Harvest Account ID
+- `time_entry_id` (required): The ID of the time entry to delete
+
+**Example Usage:**
+```json
+{
+  "time_entry_id": 123456789
+}
+```
+
+**Example Response:**
+```
+Success! Time entry 123456789 has been deleted.
+```
+
 ## Development
 
 ### Build the project
@@ -264,6 +386,11 @@ Once configured, you can use natural language to interact with Harvest:
 - "Get all time entries from February 1st to February 5th"
 - "Show me time entries for project 67890 this week"
 - "Log 3 hours to project 12345, task 222 with notes 'Fixed authentication bug'"
+- "Start a timer for project 67890, task 222"
+- "Is a timer running?"
+- "Stop my current timer"
+- "Restart timer 123456789"
+- "Delete time entry 123456789"
 - "Show me my Harvest profile"
 
 ## Troubleshooting
@@ -289,7 +416,11 @@ This server uses the [Harvest API v2](https://help.getharvest.com/api-v2/). Key 
 
 - `GET /users/me` - Current user information
 - `GET /users/me/project_assignments` - User's project assignments
-- `POST /time_entries` - Create a time entry
+- `GET /time_entries` - Retrieve time entries
+- `POST /time_entries` - Create a time entry or start a timer
+- `PATCH /time_entries/{id}/stop` - Stop a running timer
+- `PATCH /time_entries/{id}/restart` - Restart a stopped timer
+- `DELETE /time_entries/{id}` - Delete a time entry
 
 ## License
 
