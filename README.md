@@ -167,13 +167,25 @@ Total hours: 6.50
 
 ### `list_active_projects`
 
-List all active projects assigned to the authenticated user, including their associated tasks.
+List all active projects assigned to the authenticated user, including their associated tasks. Returns a concise, readable format by default to minimize context usage.
 
 **Parameters:**
 - `access_token` (optional): Harvest Personal Access Token
 - `account_id` (optional): Harvest Account ID
+- `format` (optional): Output format - `'compact'` (default) for concise view or `'full'` for complete JSON
 
-**Example Response:**
+**Example Response (Compact Format - Default):**
+```
+Client: Acme Corp
+  → Website Redesign (project_id: 14308070)
+     Tasks: Design (8083367), Development (8083368), Testing (8083369)
+
+Client: 123 Industries
+  → Online Store - Phase 1 (project_id: 14308069)
+     Tasks: Graphic Design (8083365), Programming (8083366)
+```
+
+**Example Response (Full Format):**
 ```json
 [
   {
@@ -191,7 +203,10 @@ List all active projects assigned to the authenticated user, including their ass
           "name": "Development"
         }
       }
-    ]
+    ],
+    "is_project_manager": false,
+    "budget": null,
+    ...
   }
 ]
 ```

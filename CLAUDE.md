@@ -51,7 +51,7 @@ All tools follow the same pattern:
 
 Available tools:
 - `get_my_profile`: Verify credentials and retrieve authenticated user info
-- `list_active_projects`: Get user's project assignments with associated tasks
+- `list_active_projects`: Get user's project assignments with associated tasks. Returns compact format by default (client name, project name/ID, task names/IDs) to minimize context usage. Use `format: 'full'` for complete JSON response.
 - `log_time`: Create a time entry for a specific project/task with hours specified
 - `get_time_entries`: Retrieve time entries for a date or date range
 - `delete_time_entry`: Delete a specific time entry

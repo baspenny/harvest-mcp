@@ -11,7 +11,7 @@ import { z } from "zod";
 
 const server = new McpServer({
   name: "harvest-mcp",
-  version: "1.0.0",
+  version: "1.2.0",
 }, {
   capabilities: { tools: {} },
 });
@@ -142,6 +142,36 @@ const getCredentials = (args: any) => {
   return { accessToken, accountId };
 };
 
+// Helper function to format project assignments in compact mode
+const formatCompactProjects = (projectAssignments: any[]): string => {
+  if (!projectAssignments || projectAssignments.length === 0) {
+    return "No active projects found.";
+  }
+
+  let output = '';
+
+  for (const assignment of projectAssignments) {
+    const clientName = assignment.client?.name || 'No Client';
+    const projectName = assignment.project.name;
+    const projectId = assignment.project.id;
+
+    output += `Client: ${clientName}\n`;
+    output += `  → ${projectName} (project_id: ${projectId})\n`;
+
+    if (assignment.task_assignments && assignment.task_assignments.length > 0) {
+      const tasks = assignment.task_assignments
+        .filter((ta: any) => ta.is_active !== false)
+        .map((ta: any) => `${ta.task.name} (${ta.task.id})`)
+        .join(', ');
+      output += `     Tasks: ${tasks}\n`;
+    }
+
+    output += '\n';
+  }
+
+  return output.trim();
+};
+
 // Register tools using the new McpServer API
 server.registerTool("get_my_profile", {
   description: "Verify credentials and get details of the authenticated user",
@@ -162,17 +192,24 @@ server.registerTool("get_my_profile", {
 });
 
 server.registerTool("list_active_projects", {
-  description: "List all active projects and their associated tasks",
+  description: "List all active projects and their associated tasks. Returns compact format by default (project/task IDs and names), or full JSON with format='full'.",
   inputSchema: {
     access_token: z.string().optional().describe("Harvest Personal Access Token (optional if set via env)"),
     account_id: z.string().optional().describe("Harvest Account ID (optional if set via env)"),
+    format: z.enum(['compact', 'full']).optional().describe("Output format: 'compact' for concise view (default), 'full' for complete JSON"),
   },
 }, async (args) => {
   try {
     const { accessToken, accountId } = getCredentials(args);
     const client = createClient(accessToken, accountId);
     const res = await client.get("/users/me/project_assignments");
-    return { content: [{ type: "text", text: JSON.stringify(res.data.project_assignments, null, 2) }] };
+
+    const format = args.format || 'compact';
+    const content = format === 'full'
+      ? JSON.stringify(res.data.project_assignments, null, 2)
+      : formatCompactProjects(res.data.project_assignments);
+
+    return { content: [{ type: "text", text: content }] };
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || error.message || "Unknown error";
     throw new Error(`Failed to list projects: ${errorMessage}`);
